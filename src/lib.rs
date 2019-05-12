@@ -118,6 +118,33 @@ impl Sender {
         Ok(n)
     }
 
+    /// Send a message to the specified channel id and thread id
+    ///
+    /// Success from this API does not guarantee the message is delivered
+    /// successfully since that runs on a separate task.
+    ///
+    /// `channel_id` is the slack channel id, e.g. `UXYZ1234`, *not* `#general`.
+    ///
+    /// `thread_ts` is plucked from an incoming message and, when used in
+    /// further messages, stacks new messages under the message first message
+    /// with that `thread_ts`.
+    ///
+    /// Only valid after `RtmClient::run`.
+    pub fn send_message_to_thread(&self, channel_id: &str, thread_ts: &str, msg: &str) -> Result<usize, Error> {
+        let n = self.get_msg_uid();
+        let msg_json = serde_json::to_string(&msg)?;
+        let mstr = format!(r#"{{"id": {}, "type": "message", "channel": "{}", "text": "{}", "thread_ts": {}}}"#,
+                           n,
+                           channel_id,
+                           &msg_json[1..msg_json.len() - 1],
+                           thread_ts);
+
+        self.send(&mstr[..])
+            .map_err(|err| Error::Internal(format!("{}", err)))?;
+
+        Ok(n)
+    }
+
     /// Marks connected client as being typing to a channel
     /// This is mostly used to signal to other peers that a message
     /// is being typed. Will have the server send a "user_typing" message to all the
